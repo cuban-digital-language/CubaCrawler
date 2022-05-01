@@ -25,15 +25,15 @@ class ScrapBase:
         self._proxy = proxy
         self._html_text = None
 
-    def _request_html(self, url, proxy):
+    def _request_html(self, url, proxy, timeout = 10):
         # logger.debug('_request_html {}, {}'.format(url, proxy))
         try:
-            response = requests.get(url, proxies=proxy, timeout=10)
+            response = requests.get(url, proxies=proxy, timeout=timeout)
         except Exception as e:
             # logger.debug(e)
             if isinstance(e, LocationParseError):
                 try:
-                    response = requests.get(url, proxies=proxy['http'], timeout=10)
+                    response = requests.get(url, proxies=proxy['http'], timeout=timeout)
                 except Exception as e:
                     if isinstance(e, LocationParseError):
                         logger.debug(e)
@@ -101,3 +101,4 @@ class ScrapBase:
     @staticmethod
     def can_crawl(url: str)->bool:
         return False
+        

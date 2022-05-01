@@ -1,3 +1,4 @@
+from cgitb import text
 from bs4 import BeautifulSoup
 from urllib3.exceptions import LocationParseError
 try:
@@ -25,6 +26,10 @@ sps = re.compile('  +')
 comm = re.compile('comment')
 
 class CubaDebate(ScrapBase):
+    HOME = 'page'
+    MORE_READER = 'estadistica_ga'
+    MORE_SHARED = 'estadistica_addthis'
+    MORE_COMMENT = "estadistica_comments consumo_last_section"
 
     def __init__(self,url,proxy=None):
         super().__init__(url,proxy)
@@ -165,3 +170,83 @@ class CubaDebate(ScrapBase):
     @staticmethod
     def can_crawl(url):
         return 'cubadebate.cu' in url.lower()
+    
+    @staticmethod
+    def auto_crawl(pages=10, proxy = None, crawl_len = None, timeout = 100, clean = False):
+        links = []
+
+        for i in range(1, pages + 1):
+            with open(f'cubadebate_page_{i}.html', 'a+' if not clean else 'w+') as page:
+                page.close()
+            with open(f'cubadebate_page_{i}.html', 'r+') as page:
+                html = page.read()
+                if not any(html):
+                    crawl = CubaDebate('', proxy)
+                    try:
+                        html = crawl._request_html(f'http://www.cubadebate.cu/page/{i}', proxy, timeout)
+                    except UnreachebleURL:
+                        break
+                    page.write(html)
+            
+                page.close()
+                soup = BeautifulSoup(html, 'lxml')
+                # soup = soup.find('section', {'id': 'page' if session is None else session})
+
+                for link in soup.find_all('a'):
+                    href = link.get('href')
+                    if not href in links: 
+                        links.append(href)
+
+                    if not crawl_len is None and len(link) >= crawl_len: 
+                        break
+                else: continue
+                break
+
+        def filter(url): 
+            return (
+            type(url) == type('') 
+            and url.startswith('http://www.cubadebate.cu/noticias')
+            and not '#respond' in url
+            and not '#anexo' in url
+        )
+
+        return [CubaDebate(url, proxy) for url in links if filter(url) ]
+
+    def json_export(cuba_crawl_list, filter = lambda d, c: True, name_file= "cubadebate", clean_text = lambda x: x):
+        with open(f'{name_file}.json', 'w+') as txt:
+
+            for i, crawl in enumerate(cuba_crawl_list):
+                try:
+                    data = crawl.data
+                    comment = crawl.comment
+                except UnreachebleURL:
+                    continue
+
+                if filter(data, comment):
+                    result = '{ \n'
+                    result += f'"url": "{crawl._url}",\n'
+                    result += f'"title": "{data["title"]}",\n'
+                    t = clean_text(data["text"])
+                    result += f'"text": "{t}", \n'
+                    result += f'"author": "{data["author"]}",\n'
+                    result += f'"date": "{data["pub_date"]}",\n'
+                    result += f'"comments": ['
+
+                    for c in comment:
+                        result += '{\n'
+                        t = clean_text(c["text"])
+                        result += f'"text": "{t}",\n'
+                        result += f'"author": "{c["author"]}",\n'
+                        result += f'"date": "{c["date"]}"\n'
+                        result += '},'
+
+                    txt.write(result[0: -1] + ']},')
+                print(i, '-->',crawl._url)
+            txt.write(']')
+
+if __name__ == '__main__':
+    def clean_text(text):
+            return text.replace("\"", "\'").replace('\t', '').replace('\\', '')
+
+    cuba_crawl_list = CubaDebate.auto_crawl(pages=30)
+    CubaDebate.json_export(cuba_crawl_list, filter=lambda d,c: any(c), clean_text=clean_text)

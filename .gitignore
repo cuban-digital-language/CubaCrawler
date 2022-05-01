@@ -8,3 +8,5 @@ coverage.xml
 .directory
 build
 CubaCrawler.egg-info
+*.html
+*.json
