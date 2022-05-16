@@ -214,7 +214,7 @@ class CubaDebate(ScrapBase):
 
     def json_export(cuba_crawl_list, filter = lambda d, c: True, name_file= "cubadebate", clean_text = lambda x: x):
         with open(f'{name_file}.json', 'w+') as txt:
-
+            txt.write('[')
             for i, crawl in enumerate(cuba_crawl_list):
                 try:
                     data = crawl.data
@@ -225,18 +225,16 @@ class CubaDebate(ScrapBase):
                 if filter(data, comment):
                     result = '{ \n'
                     result += f'"url": "{crawl._url}",\n'
-                    result += f'"title": "{data["title"]}",\n'
-                    t = clean_text(data["text"])
-                    result += f'"text": "{t}", \n'
-                    result += f'"author": "{data["author"]}",\n'
+                    result += f'"title": "{clean_text(data["title"])}",\n'
+                    result += f'"text": "{clean_text(data["text"])}", \n'
+                    result += f'"author": "{clean_text(data["author"])}",\n'
                     result += f'"date": "{data["pub_date"]}",\n'
                     result += f'"comments": ['
 
                     for c in comment:
                         result += '{\n'
-                        t = clean_text(c["text"])
-                        result += f'"text": "{t}",\n'
-                        result += f'"author": "{c["author"]}",\n'
+                        result += f'"text": "{clean_text(c["text"])}",\n'
+                        result += f'"author": "{clean_text(c["author"])}",\n'
                         result += f'"date": "{c["date"]}"\n'
                         result += '},'
 
@@ -246,7 +244,8 @@ class CubaDebate(ScrapBase):
 
 if __name__ == '__main__':
     def clean_text(text):
-            return text.replace("\"", "\'").replace('\t', '').replace('\\', '')
+        if text is None: return text
+        return text.replace("\"", "\'").replace('\t', '').replace('\\', '').replace('\n', ' ')
 
-    cuba_crawl_list = CubaDebate.auto_crawl(pages=30)
+    cuba_crawl_list = CubaDebate.auto_crawl(pages=50)
     CubaDebate.json_export(cuba_crawl_list, filter=lambda d,c: any(c), clean_text=clean_text)
