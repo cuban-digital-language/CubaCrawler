@@ -1,29 +1,26 @@
+from datetime import datetime
 from cgitb import text
 from bs4 import BeautifulSoup
 from urllib3.exceptions import LocationParseError
 try:
     from .ScrapBase import ScrapBase, UnreachebleURL, ProxyConfigError
-except (ModuleNotFoundError,ImportError):
+except (ModuleNotFoundError, ImportError):
     from ScrapBase import ScrapBase, UnreachebleURL, ProxyConfigError
 import requests
 import re
 import logging
 logger = logging.getLogger('scrapper')
 
-from bs4 import BeautifulSoup
 try:
     from .ScrapBase import ScrapBase
 except (ModuleNotFoundError, ImportError):
     from ScrapBase import ScrapBase
-import requests
-import re
-import logging
-from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
 sps = re.compile('  +')
 comm = re.compile('comment')
+
 
 class CubaDebate(ScrapBase):
     HOME = 'page'
@@ -31,8 +28,8 @@ class CubaDebate(ScrapBase):
     MORE_SHARED = 'estadistica_addthis'
     MORE_COMMENT = "estadistica_comments consumo_last_section"
 
-    def __init__(self,url,proxy=None):
-        super().__init__(url,proxy)
+    def __init__(self, url, proxy=None):
+        super().__init__(url, proxy)
         self._html_text = None
 
     def _Source(self):
@@ -57,24 +54,24 @@ class CubaDebate(ScrapBase):
             att = i.attrs.get('class')
             if att:
                 for j in att:
-                    if  j== 'wp-caption-text':
+                    if j == 'wp-caption-text':
                         imgfooter = i.text.strip()
                         break
             else:
                 txt = i.text.strip()
-                if re.search('Fuente:',txt,re.I):
+                if re.search('Fuente:', txt, re.I):
                     fuente = txt.split(':')[1].strip()
                     continue
-                text+=txt+' '
+                text += txt+' '
         ans = text.strip()
         #ans = ans.text.strip().replace('\n',' ')
-        por = soup.find("span",{"class":"extraauthor"})
+        por = soup.find("span", {"class": "extraauthor"})
         if por:
             por = por.get_text()
-        title = soup.find('h2',{"class": "title"}).text
+        title = soup.find('h2', {"class": "title"}).text
         date = soup.find('time')
         date = datetime.strptime(date.attrs['datetime'], '%Y-%m-%d %H:%M:%S')
-        return {'text': ans,'title': title,'img': img, 'author': por,"pub_date": date,
+        return {'text': ans, 'title': title, 'img': img, 'author': por, "pub_date": date,
                 'img_footer': imgfooter, 'notice_source': fuente}
 
     def _Comment(self, url, proxy):
@@ -106,11 +103,12 @@ class CubaDebate(ScrapBase):
                     tt['author'] = str(j.contents[0].get_text())
                 elif j.name == 'p':
                     temp = str(j.get_text()).strip()
-                    temp = temp.replace('\n',' ')
-                    temp = sps.sub(' ',temp)
+                    temp = temp.replace('\n', ' ')
+                    temp = sps.sub(' ', temp)
                     tt['text'] = temp
                 elif j.name == 'div' and 'commentmetadata' in j['class']:
-                    tt['date'] = self._convert_to_datetime(j.get_text().strip())
+                    tt['date'] = self._convert_to_datetime(
+                        j.get_text().strip())
             comments.append(tt)
 
         new_request = soup.find(
@@ -120,7 +118,7 @@ class CubaDebate(ScrapBase):
             new_html = self._request_html(new_url, proxy)
             new_soup = BeautifulSoup(new_html, 'lxml')
             proc_com = new_soup.find_all(
-            'li', attrs={'id': comm})
+                'li', attrs={'id': comm})
             for i in proc_com:
                 data = i.contents[0].contents[0]
                 tt = {}
@@ -129,11 +127,12 @@ class CubaDebate(ScrapBase):
                         tt['author'] = str(j.contents[0].get_text())
                     elif j.name == 'p':
                         temp = str(j.get_text()).strip()
-                        temp = temp.replace('\n',' ')
-                        temp = sps.sub(' ',temp)
+                        temp = temp.replace('\n', ' ')
+                        temp = sps.sub(' ', temp)
                         tt['text'] = temp
                     elif j.name == 'div' and 'commentmetadata' in j['class']:
-                        tt['date'] = self._convert_to_datetime(j.get_text().strip())
+                        tt['date'] = self._convert_to_datetime(
+                            j.get_text().strip())
                 comments.append(tt)
             new_request = new_soup.find(
                 'a', attrs={'class': 'next'})
@@ -170,12 +169,12 @@ class CubaDebate(ScrapBase):
     @staticmethod
     def can_crawl(url):
         return 'cubadebate.cu' in url.lower()
-    
+
     @staticmethod
-    def auto_crawl(pages=10, proxy = None, crawl_len = None, timeout = 100, clean = False):
+    def auto_crawl(pages=10, proxy=None, crawl_len=None, timeout=100, clean=False):
         links = []
 
-        for i in range(1, pages + 1):
+        for i in range(400, pages + 1):
             with open(f'cubadebate_page_{i}.html', 'a+' if not clean else 'w+') as page:
                 page.close()
             with open(f'cubadebate_page_{i}.html', 'r+') as page:
@@ -183,36 +182,39 @@ class CubaDebate(ScrapBase):
                 if not any(html):
                     crawl = CubaDebate('', proxy)
                     try:
-                        html = crawl._request_html(f'http://www.cubadebate.cu/page/{i}', proxy, timeout)
+                        html = crawl._request_html(
+                            f'http://www.cubadebate.cu/page/{i}', proxy, timeout)
                     except UnreachebleURL:
-                        break
+                        print('error in page', i)
+                        continue
                     page.write(html)
-            
+
                 page.close()
                 soup = BeautifulSoup(html, 'lxml')
                 # soup = soup.find('section', {'id': 'page' if session is None else session})
 
                 for link in soup.find_all('a'):
                     href = link.get('href')
-                    if not href in links: 
+                    if not href in links:
                         links.append(href)
 
-                    if not crawl_len is None and len(link) >= crawl_len: 
+                    if not crawl_len is None and len(link) >= crawl_len:
                         break
-                else: continue
+                else:
+                    continue
                 break
 
-        def filter(url): 
+        def filter(url):
             return (
-            type(url) == type('') 
-            and url.startswith('http://www.cubadebate.cu/noticias')
-            and not '#respond' in url
-            and not '#anexo' in url
-        )
+                type(url) == type('')
+                and url.startswith('http://www.cubadebate.cu/noticias')
+                and not '#respond' in url
+                and not '#anexo' in url
+            )
 
-        return [CubaDebate(url, proxy) for url in links if filter(url) ]
+        return [CubaDebate(url, proxy) for url in links if filter(url)]
 
-    def json_export(cuba_crawl_list, filter = lambda d, c: True, name_file= "cubadebate", clean_text = lambda x: x):
+    def json_export(cuba_crawl_list, filter=lambda d, c: True, name_file="cubadebate", clean_text=lambda x: x):
         with open(f'{name_file}.json', 'w+') as txt:
             txt.write('[')
             for i, crawl in enumerate(cuba_crawl_list):
@@ -229,23 +231,27 @@ class CubaDebate(ScrapBase):
                     result += f'"text": "{clean_text(data["text"])}", \n'
                     result += f'"author": "{clean_text(data["author"])}",\n'
                     result += f'"date": "{data["pub_date"]}",\n'
-                    result += f'"comments": ['
+                    result += f'"comments": [ '
 
-                    for c in comment:
-                        result += '{\n'
-                        result += f'"text": "{clean_text(c["text"])}",\n'
-                        result += f'"author": "{clean_text(c["author"])}",\n'
-                        result += f'"date": "{c["date"]}"\n'
-                        result += '},'
-
+                    try:
+                        for c in comment:
+                            result += '{\n'
+                            result += f'"text": "{clean_text(c["text"])}",\n'
+                            result += f'"author": "{clean_text(c["author"])}",\n'
+                            result += f'"date": "{c["date"]}"\n'
+                            result += '},'
+                    except: pass
                     txt.write(result[0: -1] + ']},')
-                print(i, '-->',crawl._url)
+                print(i, '-->', crawl._url)
             txt.write(']')
+
 
 if __name__ == '__main__':
     def clean_text(text):
-        if text is None: return text
+        if text is None:
+            return text
         return text.replace("\"", "\'").replace('\t', '').replace('\\', '').replace('\n', ' ')
 
-    cuba_crawl_list = CubaDebate.auto_crawl(pages=50)
-    CubaDebate.json_export(cuba_crawl_list, filter=lambda d,c: any(c), clean_text=clean_text)
+    cuba_crawl_list = CubaDebate.auto_crawl(pages=600, timeout=1000000)
+    CubaDebate.json_export(cuba_crawl_list, filter=lambda d,
+                           c: True, clean_text=clean_text)
